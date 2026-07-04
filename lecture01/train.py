@@ -24,7 +24,45 @@ def main(
     num_steps: int = 400,
     learning_rate: float = 0.01,
 ):
-    # TODO
+    #define teacher
+    w_teacher = jnp.array([0.5, -1.0])
+
+    #define student
+    w_student= jnp.array([-1.0, 3.0])
+
+    print(vis(w_student, w_teacher, step= 0, loss=jnp.inf))
+
+    #training loop
+    for step in range(1, num_steps+1):
+        l = loss(w_student, w_teacher)
+        grad_fn = jax.grad(loss)
+        g = grad_fn(w_student, w_teacher)
+
+        w_student = w_student -  learning_rate*g
+
+        plot = vis(w_student, w_teacher, step, l)
+        print(f"\x1b[{plot.height}A{plot}")
+        time.sleep(0.02)
+
+def forward(
+    w: Float[Array, "2"],
+    x: Float[Array, "batch_size"],
+) -> Float[Array, "batch_size"]:
+    a, b = w
+    return a*x + b
+
+def loss(
+    w_student: Float[Array, "2"],
+    w_teacher: Float[Array, "2"],
+)-> float:
+    x = jnp.linspace(-4, 4, 80)
+    y_student = forward(w_student, x)
+    y_teacher = forward(w_teacher, x)
+    squared_error = (y_teacher - y_student)**2
+    loss = jnp.mean(squared_error)
+    return loss
+
+
 
 def vis(
     w_student: Float[Array, "2"],
@@ -37,7 +75,8 @@ def vis(
         mp.scatter(
             mp.xaxis(-4, 4, 80),
             mp.yaxis(-4, 4, 80),
-            # TODO
+            (x, forward(w_teacher,x), 'cyan'),
+            (x, forward(w_student,x),  'magenta'),
             height=20,
             width=40,
             xrange=(-4,4),
