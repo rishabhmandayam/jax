@@ -34,12 +34,10 @@ def main(
 
     #training loop
     for step in range(1, num_steps+1):
-        l = loss(w_student, w_teacher)
-        grad_fn = jax.grad(loss)
-        g = grad_fn(w_student, w_teacher)
+        loss_and_grad_fn = jax.value_and_grad(loss)
+        l,g = loss_and_grad_fn(w_student, w_teacher)
 
         w_student = w_student -  learning_rate*g
-
         plot = vis(w_student, w_teacher, step, l)
         print(f"\x1b[{plot.height}A{plot}")
         time.sleep(0.02)
