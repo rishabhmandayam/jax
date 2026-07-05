@@ -23,12 +23,40 @@ import jax.numpy as jnp
 import einops
 
 
-# # # 
+# # #
 # MODEL CODE
 
+type Model = tuple[
+    Float[Array, "2 hidden"],
+    Float[Array, "hidden"],
+    Float[Array, "hidden 1"],
+    Float[Array, "1"]
+]
+
+def forward(
+    w: Model,
+    x:Float[Array, "batch_size 2"]
+) -> Float[Array, "batch_size"]:
+    W1 , b1, W2, b2 = w
+    #layer 1
+    x = x @ W1 + b1
+    #activation
+    x = jax.nn.relu(x)
+    #layer 2
+    logits = x @ W2 + b2
+    return logits
+
+def loss(
+    w: Model,
+    xs: Float[Array, "batch_size 2"],
+    ys: Bool[Array, "batch_size"],
+)->float:
+    logits = forward(w, xs)[:0]
+    cross_entropies = jnp.logaddexp(0, logits) - ys * logits
+    return jnp.mean(cross_entropies)
 
 
-# # # 
+# # #
 # TRAINING CODE
 
 def main(
@@ -39,10 +67,87 @@ def main(
     minibatch_size: int = 64,
     seed: int = 42,
 ):
-    # TODO
+    key = jax.random.key(seed=seed)
+
+    #initilize training data
+    key_data, key = jax.random.split(key)
+    xs = jax.random.multivariate_normal(
+        key = key_data,
+        mean = jnp.zeros(2),
+        cov = jnp.eye(2),
+        shape = num_points,
+    )
+
+    cs = einops.repeat(
+        jnp.arange(4),
+        'n -> (n k)',
+        k = num_points//4,
+    )
+
+    xs = 0.5 * xs + jnp.array([
+        (-1, -1),
+        (+1, +1),
+        (-1, +1),
+        (+1, -1)
+    ])[cs]
+
+    ys = cs // 2
+
+    print(vis_data(xs,ys))
+
+    # initialize the model
+
+    key_model_init, key = jax.random.split(key)
+    key_W1, key_model_init = jax.random.split(key_model_init)
+    W1 = jax.random.normal(
+        key=key_W1,
+        shape = (2, num_hidden),
+    )
+    b1 = jnp.zeros(num_hidden)
+
+    key_W2, key_model_init = jax.random.split(key_model_init)
+    W2 = jax.random.normal(
+        key=key_W2,
+        shape = (num_hidden, 1),
+    )
+    b2 = jnp.zeros(1)
+
+    w = (W1, b1, W2, b2)
+
+    print(vis_model(w, xs, ys, -1))
+
+    key_train, key = jax.random.split(key)
+    for t in range(num_steps):
+        #sample a minibatch
+        key_minibatch, key_train =  jax.random.split(key_train)
+        minibatch_idx = jax.random.choice(
+            key = key_minibatch,
+            a = num_points,
+            shape = (minibatch_size,),
+            replace = False,
+        )
+        xs_batch = xs[minibatch_idx]
+        ys_batch = ys[minibatch_idx]
+
+        #do a gradient ste1p
+        l, g = jax.value_and_grad(loss)(w, xs_batch, ys_batch)
+        w = jax.tree.map(
+            lambda model_leaf, grad_leaf:
+                model_leaf - learning_rate * grad_leaf,
+            w,
+            g,
+        )
+
+        # visualise
+        plot = vis_model(
+            w, xs, ys, t
+        )
+        print(f"{-plot}{plot}")
+        time.sleep(0.02)
 
 
-# # # 
+
+# # #
 # VISUALISATION
 
 

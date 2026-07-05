@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 
 
-# # # 
+# # #
 # ENTRY POINT
 
 
@@ -28,10 +28,82 @@ def main(
     learning_rate: float = 0.2,
     seed: int = 42,
 ):
-    # TODO
+    #init PRNG
+    key = jax.random.key(seed=seed)
+
+    #initalise dataset
+    key_pos, key = jax.random.split(key)
+
+    xs_pos = jax.random.multivariate_normal(
+        key=key_pos,
+        mean = jnp.ones(2),
+        cov = 0.25 * jnp.eye(2),
+        shape = (num_points//2,)
+    )
+
+    ys_pos = jnp.ones(num_points//2, dtype = bool)
+
+    #initalise dataset
+    key_neg, key = jax.random.split(key)
+
+    xs_neg = jax.random.multivariate_normal(
+        key=key_neg,
+        mean = jnp.zeros(2),
+        cov = 0.25 * jnp.eye(2),
+        shape = (num_points//2,)
+    )
+
+    ys_neg = jnp.zeros(num_points//2, dtype = bool)
+
+    xs = jnp.concatenate([xs_pos, xs_neg], axis = 0)
+    ys = jnp.concatenate([ys_pos, ys_neg], axis = 0)
+
+    #shuffle data
+    key_shuffle, key = jax.random.split(key)
+
+    pi = jax.random.permutation(
+        key = key_shuffle,
+        x = ys.size,
+    )
+    xs = xs[pi]
+    ys = ys[pi]
+
+    #define perceptron model
+    key_model_init, key = jax.random.split(key)
+    w = jax.random.normal(
+        key = key_model_init,
+        shape=(3,),
+    )
+
+    print(vis_model(w, xs, step=0))
+    for t, (x,y) in enumerate(zip(xs, ys)):
+        l,g = jax.value_and_grad(loss)(w,x,y)
+
+        w = w - learning_rate * g
+
+        plot = vis_model(w, xs, step = t)
+        print(f"{-plot}{plot}")
+        time.sleep(0.02)
+
+def loss(
+    w: Float[Array, "3"],
+    x: Float[Array, "2"],
+    y: Bool[Array, ""],
+)->Float[Array, ""]:
+    logit = forward(w,x)
+    cross_entropy= jnp.logaddexp(0, logit) - y * logit
+    return cross_entropy
+
+def forward(
+    w: Float[Array, "3"],
+    x: Float[Array, "2"],
+)->float:
+    a = w[:2]
+    b = w[2]
+    return jnp.dot(x, a) + b
 
 
-# # # 
+# # #
 # VISUALISATION CODE
 
 
